@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function Index() {
+  const router = useRouter();
   console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
 
   return (
