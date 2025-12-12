@@ -174,4 +174,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
   },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
