@@ -49,7 +49,7 @@ export default function Index() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.button}>
+        <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
           <Text style={styles.buttonText}>Get Started</Text>
         </TouchableOpacity>
 
