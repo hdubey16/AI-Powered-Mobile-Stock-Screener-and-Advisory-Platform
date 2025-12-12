@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     try {
-      const token = await SecureStore.getItemAsync('authToken');
+      const token = await storage.getItem('authToken');
       if (token) {
         const response = await axios.get(`${BACKEND_URL}/api/auth/me`, {
           headers: {
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.log('Auth check failed:', error);
-      await SecureStore.deleteItemAsync('authToken');
+      await storage.removeItem('authToken');
     } finally {
       setLoading(false);
     }
