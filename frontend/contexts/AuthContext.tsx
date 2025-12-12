@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       const { access_token, user: userData } = response.data;
-      await SecureStore.setItemAsync('authToken', access_token);
+      await storage.setItem('authToken', access_token);
       setUser(userData);
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Login failed';
@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       const { access_token, user: userData } = response.data;
-      await SecureStore.setItemAsync('authToken', access_token);
+      await storage.setItem('authToken', access_token);
       setUser(userData);
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Signup failed';
@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('authToken');
+    await storage.removeItem('authToken');
     setUser(null);
   };
 
