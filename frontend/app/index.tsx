@@ -1,5 +1,6 @@
 import { Text, View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
