@@ -63,8 +63,8 @@ async def is_cache_valid() -> bool:
     try:
         from market_cache import market_data_cache
         # Check raw existence to avoid parsing overhead
-        if market_data_cache.storage:
-            exists = await market_data_cache.storage.get_from_cache(CACHE_KEY)
+        if market_data_cache.redis:
+            exists = await market_data_cache.redis.exists(CACHE_KEY)
             if exists:
                 return True
     except Exception as e:

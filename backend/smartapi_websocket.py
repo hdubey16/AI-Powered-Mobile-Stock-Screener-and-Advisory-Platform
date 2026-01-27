@@ -160,5 +160,16 @@ class SmartApiWebSocketManager:
         logger.warning("WebSocket Connection Closed")
         self.is_connected = False
 
+    async def disconnect(self):
+        """Stop the WebSocket connection"""
+        self._stop_event.set()
+        if self.sws:
+            try:
+                self.sws.close()
+            except Exception:
+                pass
+        self.is_connected = False
+        logger.info("WebSocket disconnected")
+
 # Global instance
 smartapi_ws_manager = SmartApiWebSocketManager()

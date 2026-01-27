@@ -9,7 +9,7 @@ Implements intelligent caching for Market API responses with:
 import asyncio
 import json
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from redis_config import redis_manager
 from angelone_service import get_stock_quote_angel_async
 import schedule
@@ -70,6 +70,7 @@ class MarketDataCache:
         self.metrics = CacheMetrics()
         self.redis = redis_manager
         self.market_service = market_service
+        self.memory_cache = {}
         
         # Cache TTL configurations (in seconds)
         self.ttl_config = {
@@ -98,7 +99,7 @@ class MarketDataCache:
         self.warming_running = False
             
     async def get(self, key: str) -> Optional[Any]:
-        """Get from Redis"""
+        """Get from Redis or Memory Fallback"""
         if self.redis.is_connected:
             try:
                 val = await self.redis.get(key)
@@ -106,10 +107,18 @@ class MarketDataCache:
                     return json.loads(val)
             except Exception:
                 pass
+
+        # Fallback to memory
+        if key in self.memory_cache:
+            data, expiry = self.memory_cache[key]
+            if datetime.now() < expiry:
+                return data
+            else:
+                del self.memory_cache[key]
         return None
 
     async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
-        """Set to Redis"""
+        """Set to Redis or Memory Fallback"""
         val_str = json.dumps(value) if not isinstance(value, str) else value
         if self.redis.is_connected:
             try:
@@ -117,7 +126,11 @@ class MarketDataCache:
                 return True
             except Exception:
                 pass
-        return False
+
+        # Fallback to memory if Redis is down
+        expiry = datetime.now() + timedelta(seconds=ttl)
+        self.memory_cache[key] = (value, expiry)
+        return True
 
     async def get_indices(self, force_refresh: bool = False) -> Optional[Dict]:
         cache_key = "market:indices"
@@ -310,5 +323,63 @@ class MarketDataCache:
     def start_cache_warming(self, interval_minutes: int = 5):
         self.warming_running = True
         print(f"[WARMING] Started every {interval_minutes}m")
+
+    async def invalidate_cache(self, key: Optional[str] = None):
+        """Invalidate specific cache key or all market cache"""
+        if key:
+            await self.redis.delete(key)
+            if key in self.memory_cache:
+                del self.memory_cache[key]
+        else:
+            # Invalidate all market related keys
+            keys = await self.redis.get_keys("market:*")
+            for k in keys:
+                await self.redis.delete(k)
+
+            # Invalidate memory cache
+            keys_to_del = [k for k in self.memory_cache.keys() if k.startswith("market:")]
+            for k in keys_to_del:
+                del self.memory_cache[k]
+
+    async def get_latest_snapshot(self) -> Optional[Dict]:
+        """Get latest snapshot via service"""
+        return await self.market_service.get_latest_snapshot()
+
+    async def get_snapshot_by_date(self, date: str) -> Optional[Dict]:
+        """Get snapshot by date via service"""
+        return await self.market_service.get_snapshot_by_date(date)
+
+    async def compare_snapshots(self, date1: str, date2: str) -> Dict:
+        """Compare two snapshots"""
+        s1 = await self.get_snapshot_by_date(date1)
+        s2 = await self.get_snapshot_by_date(date2)
+
+        if not s1 or not s2:
+            return {
+                "error": "One or both snapshots not found",
+                "s1_found": bool(s1),
+                "s2_found": bool(s2)
+            }
+
+        # Basic comparison
+        return {
+            "date1": s1.get("date"),
+            "date2": s2.get("date"),
+            "market_status_change": f"{s1.get('market_status')} -> {s2.get('market_status')}",
+            "sentiment_change": f"{s1.get('summary', {}).get('market_sentiment')} -> {s2.get('summary', {}).get('market_sentiment')}"
+        }
+
+    def get_cache_metrics(self) -> Dict:
+        """Get metrics"""
+        return self.metrics.get_stats()
+
+    def reset_cache_metrics(self) -> None:
+        """Reset metrics"""
+        self.metrics.reset()
+
+    async def warm_cache(self) -> None:
+        """Warm up cache with critical data"""
+        # Placeholder for now as fetching logic is in router
+        pass
 
 market_data_cache = MarketDataCache()
