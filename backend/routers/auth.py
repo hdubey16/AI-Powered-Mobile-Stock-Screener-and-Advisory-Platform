@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Header, Depends
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta
 from typing import Optional
@@ -56,7 +57,7 @@ async def signup(user: UserSignup):
             )
         
         # Hash password and create user
-        hashed_password = get_password_hash(user.password)
+        hashed_password = await run_in_threadpool(get_password_hash, user.password)
         user_id = await _storage.create_user(
             email=user.email.strip().lower(),
             username=user.email.split('@')[0],  # Use email prefix as username
@@ -133,7 +134,8 @@ async def login(user: UserLogin):
         print(f"[LOGIN] User found: {db_user['email']}, verifying password...")
         
         # Verify password
-        if not verify_password(user.password, db_user.get("password_hash", "")):
+        is_valid_password = await run_in_threadpool(verify_password, user.password, db_user.get("password_hash", ""))
+        if not is_valid_password:
             print(f"[LOGIN] Password verification failed for: {user.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

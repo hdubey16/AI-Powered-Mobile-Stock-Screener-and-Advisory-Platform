@@ -96,20 +96,33 @@ class MarketDataCache:
         self.scheduler_running = False
         self.warming_thread = None
         self.warming_running = False
+
+        # In-Memory Cache (Fallback)
+        # Format: {key: {"value": val, "expires_at": timestamp}}
+        self.local_cache = {}
             
     async def get(self, key: str) -> Optional[Any]:
-        """Get from Redis"""
+        """Get from Redis (with In-Memory Fallback)"""
+        # 1. Try Redis first (L1)
         if self.redis.is_connected:
             try:
                 val = await self.redis.get(key)
                 if val:
+                    # Update local cache for next time if Redis goes down
+                    self._set_local(key, json.loads(val), 300) # Default TTL
                     return json.loads(val)
             except Exception:
                 pass
-        return None
+
+        # 2. Fallback to Local Memory (L0)
+        return self._get_local(key)
 
     async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
-        """Set to Redis"""
+        """Set to Redis (and Local Memory)"""
+        # Always set local cache
+        self._set_local(key, value, ttl)
+
+        # Try to set Redis
         val_str = json.dumps(value) if not isinstance(value, str) else value
         if self.redis.is_connected:
             try:
@@ -117,7 +130,38 @@ class MarketDataCache:
                 return True
             except Exception:
                 pass
-        return False
+        return True # Return true because we at least cached locally
+
+    def _get_local(self, key: str) -> Optional[Any]:
+        """Get from local in-memory cache"""
+        if key in self.local_cache:
+            entry = self.local_cache[key]
+            if datetime.now().timestamp() < entry["expires_at"]:
+                return entry["value"]
+            else:
+                del self.local_cache[key] # Expired
+        return None
+
+    def _set_local(self, key: str, value: Any, ttl: int):
+        """Set to local in-memory cache"""
+        self.local_cache[key] = {
+            "value": value,
+            "expires_at": datetime.now().timestamp() + ttl
+        }
+
+        # Simple cleanup if cache gets too big (prevent OOM)
+        if len(self.local_cache) > 1000:
+             # Remove expired items first
+            now = datetime.now().timestamp()
+            self.local_cache = {
+                k: v for k, v in self.local_cache.items()
+                if v["expires_at"] > now
+            }
+            # If still too big, clear half randomly (simplified LRU)
+            if len(self.local_cache) > 1000:
+                keys = list(self.local_cache.keys())[:500]
+                for k in keys:
+                    del self.local_cache[k]
 
     async def get_indices(self, force_refresh: bool = False) -> Optional[Dict]:
         cache_key = "market:indices"
@@ -237,28 +281,38 @@ class MarketDataCache:
         except Exception as e:
             logger.error(f"[SNAPSHOT] Nifty error: {e}")
 
-        # Capture Stocks
+        # Capture Stocks (Concurrent Fetching)
         captured_count = 0
         gainers_count = 0
         losers_count = 0
         sector_changes = defaultdict(list)
         
-        for symbol in self.snapshot_stocks:
-            try:
-                quote = await get_stock_quote_angel_async(symbol, "NSE")
-                if quote:
-                    snapshot["stocks"][symbol] = quote
-                    captured_count += 1
-                    change = quote.get("changePercent", 0)
-                    if change > 0: gainers_count += 1
-                    elif change < 0: losers_count += 1
-                    
-                    sector = self._get_stock_sector(symbol)
-                    sector_changes[sector].append(change)
-                    await asyncio.sleep(0.05)
-            except Exception:
-                continue
+        # Concurrency limit for API
+        sem = asyncio.Semaphore(10)
+
+        async def fetch_stock(symbol):
+            async with sem:
+                try:
+                    quote = await get_stock_quote_angel_async(symbol, "NSE")
+                    return symbol, quote
+                except Exception as e:
+                    return symbol, None
+
+        # Gather all quotes
+        tasks = [fetch_stock(sym) for sym in self.snapshot_stocks]
+        results = await asyncio.gather(*tasks)
+
+        for symbol, quote in results:
+            if quote:
+                snapshot["stocks"][symbol] = quote
+                captured_count += 1
+                change = quote.get("changePercent", 0)
+                if change > 0: gainers_count += 1
+                elif change < 0: losers_count += 1
                 
+                sector = self._get_stock_sector(symbol)
+                sector_changes[sector].append(change)
+
         # Fill Sector Summary
         for sector, changes in sector_changes.items():
             if changes:
