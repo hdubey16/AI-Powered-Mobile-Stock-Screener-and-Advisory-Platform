@@ -18,7 +18,7 @@ sys.modules["motor"] = MagicMock()
 sys.modules["motor.motor_asyncio"] = mock_motor
 
 # 2. Mock other dependencies if needed (e.g., Google Gemini)
-sys.modules["google"] = MagicMock()
+# sys.modules["google"] = MagicMock()  # This breaks firebase-admin which needs google.auth
 sys.modules["google.generativeai"] = MagicMock()
 
 # 3. Now import the app
