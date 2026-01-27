@@ -67,6 +67,17 @@ class SmartApiWebSocketManager:
         self.ws_thread.start()
         logger.info("WebSocket thread started")
 
+    async def disconnect(self):
+        """Disconnect from WebSocket"""
+        self._stop_event.set()
+        if self.sws:
+            try:
+                self.sws.close()
+            except Exception as e:
+                logger.error(f"Error disconnecting: {e}")
+        self.is_connected = False
+        logger.info("SmartAPI WebSocket Disconnected")
+
     def _run_websocket(self):
         try:
             self.sws.connect()

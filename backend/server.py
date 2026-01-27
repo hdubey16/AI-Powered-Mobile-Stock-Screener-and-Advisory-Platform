@@ -130,7 +130,7 @@ async def lifespan(app: FastAPI):
     # 3. Start WebSocket Services
     await price_batcher.start()
     try:
-        asyncio.create_task(smartapi_ws_manager.connect())
+        smartapi_ws_manager.connect()
     except Exception as e:
         pass
     
