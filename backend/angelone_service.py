@@ -137,11 +137,20 @@ def login_to_angel_one():
     """Authenticate with Angel One and get session token"""
     global smart_api, auth_token
     
+    # Check for placeholder credentials
+    if not API_KEY or API_KEY == "your_api_key_here":
+        print("[ANGELONE] Invalid API Key (Placeholder), skipping login")
+        return False
+
     try:
         smart_api = SmartConnect(api_key=API_KEY)
         
         # Generate TOTP
-        totp = pyotp.TOTP(TOTP_KEY).now()
+        try:
+            totp = pyotp.TOTP(TOTP_KEY).now()
+        except Exception:
+            print("[ANGELONE] Invalid TOTP Key")
+            return False
         
         # Login using MPIN
         data = smart_api.generateSession(CLIENT_CODE, MPIN, totp)
@@ -171,7 +180,7 @@ def login_to_hist_angel_one():
     """Authenticate specific for Historical API"""
     global smart_api_hist, hist_auth_token
     
-    if not HIST_API_KEY:
+    if not HIST_API_KEY or HIST_API_KEY == "your_api_key_here":
         print("[ANGELONE] No Historical API Key found, checking main key...")
         return False
 
@@ -180,7 +189,10 @@ def login_to_hist_angel_one():
         smart_api_hist = SmartConnect(api_key=HIST_API_KEY)
         
         # Generate TOTP
-        totp = pyotp.TOTP(TOTP_KEY).now()
+        try:
+            totp = pyotp.TOTP(TOTP_KEY).now()
+        except Exception:
+            return False
         
         # Login using MPIN
         data = smart_api_hist.generateSession(CLIENT_CODE, MPIN, totp)
@@ -201,7 +213,7 @@ def login_to_market_angel_one():
     """Authenticate specific for Market Feeds API with rate limiting"""
     global smart_api_market, market_auth_token, _last_login_attempt
     
-    if not MARKET_API_KEY:
+    if not MARKET_API_KEY or MARKET_API_KEY == "your_api_key_here":
         return False
     
     # Check if we already have a valid token
@@ -220,7 +232,10 @@ def login_to_market_angel_one():
         smart_api_market = SmartConnect(api_key=MARKET_API_KEY)
         
         # Generate TOTP
-        totp = pyotp.TOTP(TOTP_KEY).now()
+        try:
+            totp = pyotp.TOTP(TOTP_KEY).now()
+        except Exception:
+            return False
         
         # Login using MPIN
         data = smart_api_market.generateSession(CLIENT_CODE, MPIN, totp)
@@ -241,7 +256,7 @@ def login_to_publisher_angel_one():
     """Authenticate specific for Publisher API"""
     global smart_api_pub, pub_auth_token
     
-    if not PUBLISHER_API_KEY:
+    if not PUBLISHER_API_KEY or PUBLISHER_API_KEY == "your_api_key_here":
         print("[ANGELONE] No Publisher API Key found.")
         return False
 
@@ -250,7 +265,10 @@ def login_to_publisher_angel_one():
         smart_api_pub = SmartConnect(api_key=PUBLISHER_API_KEY)
         
         # Generate TOTP
-        totp = pyotp.TOTP(TOTP_KEY).now()
+        try:
+            totp = pyotp.TOTP(TOTP_KEY).now()
+        except Exception:
+            return False
         
         # Login using MPIN
         data = smart_api_pub.generateSession(CLIENT_CODE, MPIN, totp)
