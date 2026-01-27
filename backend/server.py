@@ -116,7 +116,10 @@ async def lifespan(app: FastAPI):
     print("\n🚀 Starting Stock Screener Backend (Firebase + Redis)...")
     
     # 0. Connect to Redis (Real-time Cache)
-    await redis_manager.connect()
+    if await redis_manager.connect():
+        print("✅ Using Redis cache")
+    else:
+        print("⚠️  Using In-Memory cache")
     
     # 1. Connect to Firebase (Persistent Storage)
     if initialize_firebase():

@@ -45,7 +45,8 @@ class RedisManager:
             print("✅ Redis connection established")
             return True
         except Exception as e:
-            print(f"❌ Redis connection failed: {e}")
+            print(f"⚠️  Redis connection failed. Falling back to in-memory cache.")
+            # logger.error(f"Redis error details: {e}")
             self.is_connected = False
             return False
 
